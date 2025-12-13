@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -11,7 +14,23 @@ import {
 } from "lucide-react";
 import ScrollIndicator from "@/components/scroll-indicator";
 
-// Extended project data with detailed information
+interface Project {
+  id: number;
+  slug: string;
+  title: string;
+  location: string;
+  category: string;
+  image: string;
+  sections: Array<{ heading: string; body: string }>;
+  cta: {
+    prompt: string;
+    linkText: string;
+    href: string;
+  };
+  display_order: number;
+}
+
+// Extended project data with detailed information (fallback)
 const projectData = {
   "1": {
     id: 1,
@@ -370,7 +389,68 @@ interface ProjectDetailPageProps {
 }
 
 export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
-  const project = projectData[params.id as keyof typeof projectData];
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/public/projects/${params.id}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Project not found");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setProject(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching project:", error);
+        // Fallback to static data if API fails
+        const fallbackProject =
+          projectData[params.id as keyof typeof projectData];
+        if (fallbackProject) {
+          // Convert static data format to match API format
+          setProject({
+            id: fallbackProject.id,
+            slug: params.id,
+            title: fallbackProject.title,
+            location: fallbackProject.location,
+            category: fallbackProject.category,
+            image: fallbackProject.image,
+            sections: [
+              { heading: "Overview", body: fallbackProject.description },
+              ...fallbackProject.challenges.map((c) => ({
+                heading: "Challenge",
+                body: c,
+              })),
+              ...fallbackProject.solutions.map((s) => ({
+                heading: "Solution",
+                body: s,
+              })),
+            ],
+            cta: {
+              prompt: "Interested in similar work?",
+              linkText: "Contact Us",
+              href: "/contact",
+            },
+            display_order: 0,
+          });
+        }
+        setLoading(false);
+      });
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
@@ -441,7 +521,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
             </h1>
 
             <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 max-w-3xl leading-relaxed text-gray-100">
-              {project.description}
+              {project.sections[0]?.body || ""}
             </p>
 
             {/* Meta Information */}
@@ -452,11 +532,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
               </div>
               <div className="flex items-center space-x-2">
                 <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="text-xs sm:text-sm">{project.year}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="text-xs sm:text-sm">{project.teamSize}</span>
+                <span className="text-xs sm:text-sm">
+                  {new Date().getFullYear()}
+                </span>
               </div>
               <button className="flex items-center space-x-2 hover:text-white transition-colors">
                 <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -487,58 +565,41 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                   </h3>
                   <div className="space-y-2 text-sm text-gray-600">
                     <div className="flex justify-between">
-                      <span>Duration:</span>
-                      <span className="font-medium">{project.duration}</span>
+                      <span>Category:</span>
+                      <span className="font-medium">{project.category}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Area:</span>
-                      <span className="font-medium">{project.area}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Status:</span>
-                      <span className="font-medium text-green-600">
-                        {project.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Client:</span>
-                      <span className="font-medium">{project.client}</span>
+                      <span>Location:</span>
+                      <span className="font-medium">{project.location}</span>
                     </div>
                   </div>
-                </div>
-
-                <div className="bg-gray-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Key Features
-                  </h3>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    {project.features.slice(0, 4).map((feature, index) => (
-                      <li key={index} className="flex items-center">
-                        <div className="w-2 h-2 bg-brand-50 rounded-full mr-3"></div>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               </div>
 
-              {/* Client Testimonial */}
-              <div className="bg-gradient-to-r from-brand-50 to-brand-400 p-8 rounded-lg text-white mb-12">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-xl font-bold">
-                      {project.client.charAt(0)}
-                    </span>
+              {/* Project Sections */}
+              <div className="space-y-6 mb-12">
+                {project.sections.map((section, index) => (
+                  <div key={index} className="space-y-3">
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {section.heading}
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed">
+                      {typeof section.body === "string"
+                        ? section.body.split("\n\n").map((p, i) => (
+                            <span key={i}>
+                              {p}
+                              {i < section.body.split("\n\n").length - 1 && (
+                                <>
+                                  <br />
+                                  <br />
+                                </>
+                              )}
+                            </span>
+                          ))
+                        : section.body}
+                    </p>
                   </div>
-                  <div>
-                    <blockquote className="text-lg italic mb-4">
-                      &ldquo;{project.testimonial}&rdquo;
-                    </blockquote>
-                    <cite className="text-sm font-medium">
-                      — {project.client}
-                    </cite>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
@@ -557,18 +618,6 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Location:</span>
                     <span className="font-medium">{project.location}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Year:</span>
-                    <span className="font-medium">{project.year}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium">{project.duration}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Area:</span>
-                    <span className="font-medium">{project.area}</span>
                   </div>
                 </div>
               </div>
@@ -591,111 +640,6 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                 </Link>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Project Gallery */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-gray-50">
-        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-8 sm:mb-12 text-center">
-            Project Gallery
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {project.gallery.map((image, index) => (
-              <div
-                key={index}
-                className="group overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
-              >
-                <Image
-                  src={image}
-                  alt={`${project.title} - Image ${index + 1}`}
-                  width={400}
-                  height={300}
-                  className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Challenges & Solutions */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-white">
-        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
-          <div className="grid lg:grid-cols-2 gap-12">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
-                Challenges
-              </h2>
-              <ul className="space-y-4">
-                {project.challenges.map((challenge, index) => (
-                  <li key={index} className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    </div>
-                    <span className="text-gray-700">{challenge}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
-                Our Solutions
-              </h2>
-              <ul className="space-y-4">
-                {project.solutions.map((solution, index) => (
-                  <li key={index} className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    </div>
-                    <span className="text-gray-700">{solution}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Related Projects */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-gray-50">
-        <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-8 sm:mb-12 text-center">
-            Related Projects
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {project.relatedProjects.map((relatedProject) => (
-              <Link
-                key={relatedProject.id}
-                href={`/project/${relatedProject.id}`}
-                className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105"
-              >
-                <div className="overflow-hidden">
-                  <Image
-                    src={relatedProject.image}
-                    alt={relatedProject.title}
-                    width={400}
-                    height={300}
-                    className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-brand-50 font-medium">
-                      {relatedProject.category}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {relatedProject.year}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-bold mb-3 group-hover:text-brand-400 transition-colors">
-                    {relatedProject.title}
-                  </h3>
-                </div>
-              </Link>
-            ))}
           </div>
         </div>
       </section>

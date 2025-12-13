@@ -1,33 +1,61 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import ScrollIndicator from "@/components/scroll-indicator";
-import { projectData, projectOrder, type ProjectSlug } from "./data";
+
+interface Project {
+  id: number;
+  slug: string;
+  title: string;
+  location: string;
+  category: string;
+  image: string;
+  sections: Array<{ heading: string; body: string }>;
+  cta: {
+    prompt: string;
+    linkText: string;
+    href: string;
+  };
+  display_order: number;
+}
 
 export default function PortfolioPage() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("All");
-  const [selectedSlug, setSelectedSlug] = useState<ProjectSlug | null>(null);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/public/projects")
+      .then((res) => res.json())
+      .then((data) => {
+        setProjects(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching projects:", error);
+        setLoading(false);
+      });
+  }, []);
 
   const handleClose = () => setSelectedSlug(null);
 
   const categories = useMemo(() => {
-    const unique = new Set(
-      projectOrder.map((slug) => projectData[slug].category)
-    );
+    const unique = new Set(projects.map((project) => project.category));
     return ["All", ...Array.from(unique)];
-  }, []);
+  }, [projects]);
 
-  const filteredSlugs =
+  const filteredProjects =
     filter === "All"
-      ? projectOrder
-      : projectOrder.filter((slug) => projectData[slug].category === filter);
+      ? projects
+      : projects.filter((project) => project.category === filter);
 
-  // const featuredSlug = projectOrder[0];
-  // const featuredProject = projectData[featuredSlug];
-  const selectedProject = selectedSlug ? projectData[selectedSlug] : null;
+  const selectedProject = selectedSlug
+    ? projects.find((project) => project.slug === selectedSlug)
+    : null;
   // const renderParagraphs = (text: string) =>
   //   text.split("\n\n").map((paragraph, index) => (
   //     <p key={index} className="leading-relaxed">
@@ -258,14 +286,18 @@ export default function PortfolioPage() {
           </div> */}
 
           {/* Projects Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
-            {filteredSlugs.map((slug) => {
-              const project = projectData[slug];
-              return (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading projects...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+              {filteredProjects.map((project) => (
                 <button
-                  key={slug}
+                  key={project.slug}
                   type="button"
-                  onClick={() => setSelectedSlug(slug)}
+                  onClick={() => setSelectedSlug(project.slug)}
                   className="group relative w-80 mx-auto bg-white rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-105 border border-gray-100 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-200"
                 >
                   <div className="relative h-64 overflow-hidden">
@@ -310,16 +342,16 @@ export default function PortfolioPage() {
                     </span>
                   </div>
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Results Summary */}
           <div className="text-center mt-16">
             <p className="text-gray-600">
-              Showing <span className="font-bold">{filteredSlugs.length}</span>{" "}
-              of <span className="font-bold">{projectOrder.length}</span>{" "}
-              projects
+              Showing{" "}
+              <span className="font-bold">{filteredProjects.length}</span> of{" "}
+              <span className="font-bold">{projects.length}</span> projects
               {filter !== "All" && (
                 <span className=""> in {filter} category</span>
               )}
@@ -386,15 +418,14 @@ export default function PortfolioPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredSlugs.slice(0, 3).map((slug, index) => {
-              const project = projectData[slug];
+            {filteredProjects.slice(0, 3).map((project, index) => {
               const resultSection =
                 project.sections.find((section) =>
                   section.heading.includes("✅")
                 ) ?? project.sections[project.sections.length - 1];
               return (
                 <div
-                  key={index}
+                  key={project.id || index}
                   className="bg-gray-50 rounded-2xl p-8 border border-gray-100 hover:shadow-xl transition-all duration-500 hover:scale-105"
                 >
                   <div className="mb-6">
@@ -517,11 +548,15 @@ export default function PortfolioPage() {
                 {selectedProject.sections.map((section, sectionIndex) => (
                   <div key={sectionIndex} className="space-y-3">
                     <h3>{section.heading}</h3>
-                    {section.body
-                      .split("\n\n")
-                      .map((paragraph, paragraphIndex) => (
-                        <p key={paragraphIndex}>{paragraph}</p>
-                      ))}
+                    {typeof section.body === "string" ? (
+                      section.body
+                        .split("\n\n")
+                        .map((paragraph, paragraphIndex) => (
+                          <p key={paragraphIndex}>{paragraph}</p>
+                        ))
+                    ) : (
+                      <p>{section.body}</p>
+                    )}
                   </div>
                 ))}
               </div>
