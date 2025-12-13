@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -12,23 +12,52 @@ import {
   BookOpen,
 } from "lucide-react";
 import ScrollIndicator from "@/components/scroll-indicator";
-import { blogData, type BlogSlug } from "./data";
 
-const FEATURED_SLUG: BlogSlug =
-  "importance-of-obtaining-construction-approvals-in-dubai";
-const SECONDARY_SLUGS: BlogSlug[] = [
-  "importance-of-3d-visualization-in-construction-projects",
-  "navigating-dubais-approval-process-step-by-step-guide",
-  "essential-considerations-for-a-successful-construction-project-in-dubai",
-];
-
-const featuredPost = blogData[FEATURED_SLUG];
+interface BlogPost {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  image: string;
+  date: string;
+  author?: string;
+  read_time?: string;
+  category: string;
+  tags: string[];
+  related_posts: Array<{
+    slug: string;
+    title: string;
+    image: string;
+    date: string;
+  }>;
+}
 
 export default function BlogPage() {
-  const [selectedSlug, setSelectedSlug] = useState<BlogSlug | null>(null);
-  const selectedPost = selectedSlug ? blogData[selectedSlug] : null;
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const selectedPost = selectedSlug
+    ? blogs.find((blog) => blog.slug === selectedSlug)
+    : null;
 
-  const handleOpen = (slug: BlogSlug) => {
+  useEffect(() => {
+    fetch("/api/public/blogs")
+      .then((res) => res.json())
+      .then((data) => {
+        setBlogs(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching blogs:", error);
+        setLoading(false);
+      });
+  }, []);
+
+  const featuredPost = blogs[0];
+  const secondaryPosts = blogs.slice(1, blogs.length);
+
+  const handleOpen = (slug: string) => {
     setSelectedSlug(slug);
   };
 
@@ -151,43 +180,54 @@ export default function BlogPage() {
           straight from the minds of our team and for stories of our experience
           and knowledge gained during a project.
         </p>
-        <div className="grid md:grid-cols-2 gap-8 my-20">
-          <div className="featured-image overflow-hidden rounded-lg transition-transform duration-500 hover:scale-[1.02]">
-            <Image
-              src={featuredPost.image || "/placeholder.svg"}
-              alt={featuredPost.title}
-              width={600}
-              height={400}
-              className="w-full h-[400px] object-cover"
-            />
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading blogs...</p>
           </div>
-          <div className="flex flex-col justify-center">
-            <p className="text-gray-500 mb-2">{featuredPost.date}</p>
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">
-              {featuredPost.title}
-            </h2>
-            <p className="text-gray-700 mb-6">{featuredPost.excerpt}</p>
-            <button
-              type="button"
-              onClick={() => handleOpen(FEATURED_SLUG)}
-              className="group inline-flex items-center font-semibold text-black hover:text-gray-700 transition-colors duration-300"
-            >
-              READ THE BLOG
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </button>
+        ) : featuredPost ? (
+          <div className="grid md:grid-cols-2 gap-8 my-20">
+            <div className="featured-image overflow-hidden rounded-lg transition-transform duration-500 hover:scale-[1.02]">
+              <Image
+                src={featuredPost.image || "/placeholder.svg"}
+                alt={featuredPost.title}
+                width={600}
+                height={400}
+                className="w-full h-[400px] object-cover"
+              />
+            </div>
+            <div className="flex flex-col justify-center">
+              <p className="text-gray-500 mb-2">{featuredPost.date}</p>
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">
+                {featuredPost.title}
+              </h2>
+              <p className="text-gray-700 mb-6">{featuredPost.excerpt}</p>
+              <button
+                type="button"
+                onClick={() => handleOpen(featuredPost.slug)}
+                className="group inline-flex items-center font-semibold text-black hover:text-gray-700 transition-colors duration-300"
+              >
+                READ THE BLOG
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* Blog Listing Section */}
         <section className="mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {SECONDARY_SLUGS.map((slug) => {
-              const post = blogData[slug];
-              return (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading blogs...</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {secondaryPosts.map((post) => (
                 <button
-                  key={slug}
+                  key={post.slug}
                   type="button"
-                  onClick={() => handleOpen(slug)}
+                  onClick={() => handleOpen(post.slug)}
                   className="blog-card group flex flex-col bg-white rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-200"
                 >
                   <div className="overflow-hidden relative">
@@ -213,9 +253,9 @@ export default function BlogPage() {
                     </span>
                   </div>
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
@@ -263,12 +303,13 @@ export default function BlogPage() {
                   <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span>{selectedPost.date}</span>
                 </div>
-                {selectedPost.readTime && selectedPost.readTime.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                    <span>{selectedPost.readTime}</span>
-                  </div>
-                )}
+                {selectedPost.read_time &&
+                  selectedPost.read_time.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <span>{selectedPost.read_time}</span>
+                    </div>
+                  )}
                 <button className="flex items-center space-x-2 text-gray-500 hover:text-gray-900 transition-colors">
                   <Share2 className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span>Share</span>
@@ -311,11 +352,11 @@ export default function BlogPage() {
                   Related Articles
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {selectedPost.relatedPosts.map((post, index) => (
+                  {selectedPost.related_posts.map((post, index) => (
                     <button
                       key={`${selectedPost.slug}-related-${index}`}
                       type="button"
-                      onClick={() => handleOpen(post.slug as BlogSlug)}
+                      onClick={() => handleOpen(post.slug)}
                       className="group flex items-center space-y-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-brand-200 hover:shadow-lg sm:space-y-0 sm:space-x-4 sm:flex-row flex-col"
                     >
                       <div className="relative h-20 w-full overflow-hidden rounded-xl sm:w-28">
