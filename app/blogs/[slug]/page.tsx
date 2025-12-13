@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -10,7 +13,26 @@ import {
   ArrowRight,
 } from "lucide-react";
 import ScrollIndicator from "@/components/scroll-indicator";
-import { blogData, type BlogSlug } from "../data";
+
+interface BlogPost {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  image: string;
+  date: string;
+  author?: string;
+  read_time?: string;
+  category: string;
+  tags: string[];
+  related_posts: Array<{
+    slug: string;
+    title: string;
+    image: string;
+    date: string;
+  }>;
+}
 
 interface BlogDetailPageProps {
   params: {
@@ -19,7 +41,37 @@ interface BlogDetailPageProps {
 }
 
 export default function BlogDetailPage({ params }: BlogDetailPageProps) {
-  const blog = blogData[params.slug as BlogSlug];
+  const [blog, setBlog] = useState<BlogPost | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/public/blogs/slug/${params.slug}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Blog not found");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setBlog(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching blog:", error);
+        setLoading(false);
+      });
+  }, [params.slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading blog...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!blog) {
     return (
@@ -105,10 +157,10 @@ export default function BlogDetailPage({ params }: BlogDetailPageProps) {
                 <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="text-xs sm:text-sm">{blog.date}</span>
               </div>
-              {blog.readTime && blog.readTime.length > 0 && (
+              {blog.read_time && blog.read_time.length > 0 && (
                 <div className="flex items-center space-x-2">
                   <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="text-xs sm:text-sm">{blog.readTime}</span>
+                  <span className="text-xs sm:text-sm">{blog.read_time}</span>
                 </div>
               )}
               <button className="flex items-center space-x-2 hover:text-white transition-colors">
@@ -153,7 +205,7 @@ export default function BlogDetailPage({ params }: BlogDetailPageProps) {
             Related Articles
           </h2>
           <div className="grid md:grid-cols-2 gap-8">
-            {blog.relatedPosts.map((post, index) => (
+            {blog.related_posts.map((post, index) => (
               <Link
                 key={index}
                 href={`/blogs/${post.slug}`}
