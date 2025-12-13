@@ -30,8 +30,6 @@ const ContactCard = () => {
 
     const { fullName, email } = formData;
 
-    console.log(fullName);
-
     if (!email) {
       toast.error("Please fill in required fields.");
       return;
@@ -40,8 +38,22 @@ const ContactCard = () => {
     setLoading(true);
 
     try {
-      // Simulate an async request
-      await new Promise((res) => setTimeout(res, 1000));
+      const response = await fetch("/api/quote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName,
+          email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send quote request");
+      }
 
       // Reset form
       setFormData({
@@ -49,10 +61,16 @@ const ContactCard = () => {
         email: "",
       });
 
-      toast.success("Message sent successfully!");
+      toast.success(
+        "Quote request sent successfully! We'll get back to you soon."
+      );
     } catch (err) {
-      toast.error("Failed to send message.");
-      console.log(err);
+      console.error("Error submitting quote request:", err);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to send quote request. Please try again."
+      );
     } finally {
       setLoading(false);
     }
