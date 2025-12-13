@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Calendar,
   MapPin,
-  Users,
   Award,
   Share2,
   ExternalLink,
