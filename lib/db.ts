@@ -10,10 +10,21 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
+// Create database connection with proper configuration
 const db = new Database(dbPath);
 
 // Enable foreign keys
 db.pragma("foreign_keys = ON");
+
+// Enable WAL mode for better concurrency and immediate updates
+// WAL mode allows readers to see changes immediately without blocking writers
+db.pragma("journal_mode = WAL");
+
+// Set busy timeout to handle concurrent access
+db.pragma("busy_timeout = 5000");
+
+// Enable synchronous mode for better data integrity (NORMAL is a good balance)
+db.pragma("synchronous = NORMAL");
 
 // Initialize database schema
 export function initDatabase() {
