@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import db from "@/lib/db";
 
+// Force dynamic rendering to see database changes immediately
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // GET all blogs (public)
 export async function GET() {
   try {
@@ -44,7 +48,15 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(parsedBlogs);
+    const response = NextResponse.json(parsedBlogs);
+    // Prevent caching in development
+    if (process.env.NODE_ENV === "development") {
+      response.headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate"
+      );
+    }
+    return response;
   } catch (error) {
     console.error("Error fetching blogs:", error);
     return NextResponse.json(

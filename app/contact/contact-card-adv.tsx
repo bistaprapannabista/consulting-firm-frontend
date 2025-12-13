@@ -58,36 +58,26 @@ const ContactCard = () => {
     setLoading(true);
 
     try {
-      // Create mailto link with form data
-      const selectedInterest = INTERESTS.find((int) => int.value === interest);
-      const subject = encodeURIComponent(
-        `Quote Request - ${selectedInterest?.label || "General Consultation"}`
-      );
+      const response = await fetch("/api/quote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName,
+          email,
+          phoneNumber,
+          company,
+          message,
+          interest,
+        }),
+      });
 
-      const emailBody = encodeURIComponent(`
-Hello,
+      const data = await response.json();
 
-I am interested in: ${selectedInterest?.label || "General Consultation"}
-
-Contact Details:
-- Full Name: ${fullName || "Not provided"}
-- Email: ${email}
-- Phone: ${phoneNumber || "Not provided"}
-- Company: ${company || "Not provided"}
-
-Message:
-${message || "No additional message provided"}
-
-Please contact me to discuss my project requirements.
-
-Best regards,
-${fullName || "Customer"}
-      `);
-
-      const mailtoLink = `mailto:info@aimterior.com?subject=${subject}&body=${emailBody}`;
-
-      // Open default mail client
-      window.open(mailtoLink, "_self");
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send quote request");
+      }
 
       // Reset form
       setFormData({
@@ -98,9 +88,17 @@ ${fullName || "Customer"}
         message: "",
         interest: "",
       });
+
+      toast.success(
+        "Quote request sent successfully! We'll get back to you soon."
+      );
     } catch (err) {
-      toast.error("Failed to open mail client.");
-      console.log(err);
+      console.error("Error submitting quote request:", err);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to send quote request. Please try again."
+      );
     } finally {
       setLoading(false);
     }

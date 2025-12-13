@@ -37,6 +37,8 @@ export default function ContactForm() {
     });
   };
 
+  const [loading, setLoading] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -48,37 +50,29 @@ export default function ContactForm() {
       return;
     }
 
+    setLoading(true);
+
     try {
-      // Create mailto link with form data
-      const selectedInterest = INTERESTS.find((int) => int.value === interest);
-      const subject = encodeURIComponent(
-        `Quote Request - ${selectedInterest?.label || "General Consultation"}`
-      );
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName,
+          email,
+          phoneNumber,
+          company,
+          message,
+          interest,
+        }),
+      });
 
-      const emailBody = encodeURIComponent(`
-Hello,
+      const data = await response.json();
 
-I am interested in: ${selectedInterest?.label || "General Consultation"}
-
-Contact Details:
-- Full Name: ${fullName || "Not provided"}
-- Email: ${email}
-- Phone: ${phoneNumber || "Not provided"}
-- Company: ${company || "Not provided"}
-
-Message:
-${message || "No additional message provided"}
-
-Please contact me to discuss my project requirements.
-
-Best regards,
-${fullName || "Customer"}
-      `);
-
-      const mailtoLink = `mailto:info@aimterior.com?subject=${subject}&body=${emailBody}`;
-
-      // Open default mail client
-      window.open(mailtoLink, "_self");
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send message");
+      }
 
       // Reset form
       setFormData({
@@ -89,9 +83,17 @@ ${fullName || "Customer"}
         message: "",
         interest: "",
       });
+
+      toast.success("Message sent successfully! We'll get back to you soon.");
     } catch (error) {
-      console.error("Error submitting contact ", error);
-      toast.error("Error opening mail client");
+      console.error("Error submitting contact:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to send message. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
   };
   return (
@@ -172,9 +174,10 @@ ${fullName || "Customer"}
           <div className="flex items-center gap-4">
             <button
               type="submit"
-              className="border px-6 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100"
+              disabled={loading}
+              className="border px-6 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              SEND
+              {loading ? "SENDING..." : "SEND"}
             </button>
             <span className="text-xs text-gray-500">
               By submitting this form you agree to our{" "}
