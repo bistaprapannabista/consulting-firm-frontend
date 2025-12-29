@@ -70,7 +70,7 @@ export default function PortfolioPage() {
         {/* Background Image with Dynamic Overlay */}
         <div className="absolute inset-0">
           <Image
-            src="/images/about.jpg"
+            src="/images/projects.png"
             alt="AIMTERIOR Portfolio Showcase"
             fill
             className="object-cover"
